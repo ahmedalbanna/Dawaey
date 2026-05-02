@@ -18,7 +18,9 @@ import {
   Settings,
   Star,
   ShieldCheck,
-  Search
+  Search,
+  Map as MapIcon,
+  List as ListIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -46,7 +48,8 @@ import { auth, db } from './lib/firebase';
 import { UserProfile, Order, OrderStatus, UserRole } from './types';
 
 import { Toaster, toast } from 'sonner';
-import MapPlaceholder from './components/MapPlaceholder';
+import MapView from './components/MapView';
+import PharmacyMapView from './components/PharmacyMapView';
 import ChatModal from './components/ChatModal';
 import ProfileEditor from './components/ProfileEditor';
 import ReviewModal from './components/ReviewModal';
@@ -350,15 +353,17 @@ interface OrderCardProps {
   onReviewClick?: (order: Order) => void;
   onChatClick?: (order: Order) => void;
   onViewPharmacist?: (pharmacistId: string) => void;
+  onCancelClick?: (order: Order) => void;
 }
 
 const OrderCard: React.FC<OrderCardProps> = (props) => {
-  const { order, isPharmacist, onUpdateStatus, onReviewClick, onChatClick, onViewPharmacist } = props;
+  const { order, isPharmacist, onUpdateStatus, onReviewClick, onChatClick, onViewPharmacist, onCancelClick } = props;
   const getStatusColor = (status: OrderStatus) => {
     switch(status) {
       case 'pending': return 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-100/50';
       case 'delivering': return 'bg-teal-50 text-teal-600 border-teal-100 shadow-teal-100/50';
       case 'completed': return 'bg-slate-100 text-slate-500 border-slate-200 shadow-none';
+      case 'canceled': return 'bg-red-50 text-red-600 border-red-100 shadow-none';
     }
   };
 
@@ -367,6 +372,7 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
       case 'pending': return 'قيد المراجعة';
       case 'delivering': return 'جاري التوصيل الآن';
       case 'completed': return 'تم التوصيل بنجاح';
+      case 'canceled': return 'معلق / تم الغاء الطلب';
     }
   };
 
@@ -454,10 +460,9 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
 
       {order.status === 'delivering' && (
         <div className="mb-6">
-           <MapPlaceholder 
-             title={isPharmacist ? "موقع المريض المستهدف" : "موقع المندوب / الصيدلي"} 
-             description={order.address} 
-             address={order.address} 
+           <MapView 
+             order={order}
+             isPharmacist={isPharmacist}
            />
         </div>
       )}
@@ -506,6 +511,22 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
         </div>
       )}
 
+      {!isPharmacist && order.status === 'pending' && (
+        <div className="pt-6 border-t border-slate-100 mt-2">
+          <button 
+            onClick={() => {
+              if (window.confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) {
+                onCancelClick?.(order);
+              }
+            }}
+            className="w-full bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl text-sm font-bold border border-red-200 transition-all flex items-center justify-center gap-2"
+          >
+            <X className="w-4 h-4" />
+            إلغاء الطلب
+          </button>
+        </div>
+      )}
+
       {order.prescriptionImage && (
         <div className="mt-6 pt-6 border-t border-slate-100">
           <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 text-right">مرفق الروشتة</p>
@@ -532,6 +553,8 @@ export default function App() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'delivering' | 'completed'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [pharmacySearch, setPharmacySearch] = useState('');
+  const [openOnly, setOpenOnly] = useState(false);
+  const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
 
   const toggleFavorite = async (phId: string) => {
     if (!profile || !user) return;
@@ -709,36 +732,73 @@ export default function App() {
                     <h3 className="text-2xl font-black text-slate-800 mb-2">ابحث عن صيدلية</h3>
                     <p className="text-slate-500 text-sm">اعثر على أقرب صيدلية مفتوحة الآن في منطقتك</p>
                   </div>
-                  <div className="w-full md:w-72">
-                    <div className="relative">
+                  <div className="w-full md:w-auto flex flex-col sm:flex-row gap-4 items-center">
+                    <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0">
+                      <button 
+                        onClick={() => setSearchViewMode('list')}
+                        className={`p-2 rounded-xl transition-all flex items-center justify-center ${searchViewMode === 'list' ? 'bg-white shadow-sm text-teal-600' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                         <ListIcon className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => setSearchViewMode('map')}
+                        className={`p-2 rounded-xl transition-all flex items-center justify-center ${searchViewMode === 'map' ? 'bg-white shadow-sm text-teal-600' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                         <MapIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => setOpenOnly(!openOnly)}
+                      className={`px-4 py-3 rounded-2xl text-sm font-bold border transition-colors whitespace-nowrap ${openOnly ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
+                    >
+                      {openOnly ? 'مفتوحة الآن فقط' : 'عرض الكل'}
+                    </button>
+                    <div className="relative w-full md:w-72">
                       <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="text"
-                        placeholder="اسم الصيدلية أو الموقع..."
+                        placeholder="اسم الصيدلية، الموقع، دواء..."
                         value={pharmacySearch}
                         onChange={(e) => setPharmacySearch(e.target.value)}
-                        className="w-full bg-slate-50 p-4 pr-11 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-right text-sm"
+                        className="w-full bg-slate-50 p-3 pr-11 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-right text-sm"
                       />
                     </div>
                   </div>
                </div>
                
-               <div className="flex gap-4 overflow-x-auto pb-4 ltr:flex-row rtl:flex-row-reverse" style={{ scrollbarWidth: 'none' }}>
-                  {pharmacists.filter(p => 
-                    p.pharmacyName?.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
-                    p.name.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
-                    p.pharmacyAddress?.toLowerCase().includes(pharmacySearch.toLowerCase())
-                  ).length === 0 ? (
+               {searchViewMode === 'map' ? (
+                 <PharmacyMapView 
+                   pharmacists={pharmacists.filter(p => {
+                     const term = pharmacySearch.toLowerCase();
+                     const matchesSearch = p.pharmacyName?.toLowerCase().includes(term) || 
+                            p.name.toLowerCase().includes(term) || 
+                            p.pharmacyAddress?.toLowerCase().includes(term) ||
+                            p.availableMedicines?.some(m => m.toLowerCase().includes(term));
+                     return matchesSearch && (!openOnly || p.isAvailable);
+                   })}
+                   onViewPharmacist={setViewPharmacist} 
+                 />
+               ) : (
+                <div className="flex gap-4 overflow-x-auto pb-4 ltr:flex-row rtl:flex-row-reverse" style={{ scrollbarWidth: 'none' }}>
+                  {pharmacists.filter(p => {
+                    const term = pharmacySearch.toLowerCase();
+                    const matchesSearch = p.pharmacyName?.toLowerCase().includes(term) || 
+                           p.name.toLowerCase().includes(term) || 
+                           p.pharmacyAddress?.toLowerCase().includes(term);
+                    return matchesSearch && (!openOnly || p.isAvailable);
+                  }).length === 0 ? (
                     <div className="w-full text-center py-10 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-3xl">
                       لم نجد صيدليات مطابقة لبحثك في منطقتك الحالية
                     </div>
                   ) : (
                     pharmacists
-                      .filter(p => 
-                        p.pharmacyName?.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
-                        p.name.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
-                        p.pharmacyAddress?.toLowerCase().includes(pharmacySearch.toLowerCase())
-                      )
+                      .filter(p => {
+                        const term = pharmacySearch.toLowerCase();
+                        const matchesSearch = p.pharmacyName?.toLowerCase().includes(term) || 
+                               p.name.toLowerCase().includes(term) || 
+                               p.pharmacyAddress?.toLowerCase().includes(term);
+                        return matchesSearch && (!openOnly || p.isAvailable);
+                      })
                       .map((ph) => {
                         const isFav = profile.favorites?.includes(ph.uid);
                         return (
@@ -769,14 +829,17 @@ export default function App() {
                              >
                                 عرض التفاصيل
                              </button>
-                             {ph.isAvailable && (
+                             {ph.isAvailable ? (
                                <div className="absolute -top-2 -right-2 bg-green-500 text-white text-[8px] font-black px-2 py-1 rounded-lg animate-bounce shadow-lg shadow-green-500/30">متاح الآن</div>
+                             ) : (
+                               <div className="absolute -top-2 -right-2 bg-slate-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg shadow-slate-500/30">غير متاح</div>
                              )}
                           </motion.div>
                         );
                       })
                   )}
                </div>
+               )}
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
@@ -816,7 +879,15 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <AnimatePresence mode="popLayout">
                   {filteredOrders.map(order => (
-                    <OrderCard key={order.id} order={order} isPharmacist={false} onReviewClick={setReviewOrder} onChatClick={setChatOrder} onViewPharmacist={handleViewPharmacist} />
+                    <OrderCard 
+                       key={order.id} 
+                       order={order} 
+                       isPharmacist={false} 
+                       onReviewClick={setReviewOrder} 
+                       onChatClick={setChatOrder} 
+                       onViewPharmacist={handleViewPharmacist} 
+                       onCancelClick={(order) => updateOrderStatus(order.id, 'canceled')}
+                    />
                   ))}
                 </AnimatePresence>
               </div>

@@ -16,7 +16,7 @@ export interface UserProfile {
   ratingCount?: number;
 }
 
-export type OrderStatus = 'pending' | 'delivering' | 'completed';
+export type OrderStatus = 'pending' | 'delivering' | 'completed' | 'canceled';
 
 export interface ChatMessage {
   senderId: string;

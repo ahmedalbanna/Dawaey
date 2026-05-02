@@ -33,8 +33,10 @@ export default function PharmacyProfile({ pharmacist, isFavorite, onToggleFavori
                 <ShieldCheck className="w-12 h-12" />
               </div>
             </div>
-            {pharmacist.isAvailable && (
-              <div className="absolute bottom-0 right-1/2 translate-x-12 bg-green-500 w-6 h-6 rounded-full border-4 border-white"></div>
+            {pharmacist.isAvailable ? (
+              <div className="absolute bottom-0 right-1/2 translate-x-12 bg-green-500 text-white font-bold text-[8px] px-2 py-0.5 rounded-full border-2 border-white shadow-sm">متاح</div>
+            ) : (
+              <div className="absolute bottom-0 right-1/2 translate-x-12 bg-slate-500 text-white font-bold text-[8px] px-2 py-0.5 rounded-full border-2 border-white shadow-sm">مغلق</div>
             )}
           </div>
 
