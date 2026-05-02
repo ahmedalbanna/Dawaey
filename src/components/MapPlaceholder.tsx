@@ -27,8 +27,8 @@ export default function MapPlaceholder({ title, description, address }: { title:
           </div>
        </div>
        <div className="absolute bottom-3 left-3 bg-white/80 backdrop-blur px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 shadow-sm flex items-center gap-1">
-         <Map className="w-3 h-3" />
-         عرض الخريطة الحية
+         <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></div>
+         تتبع حي للمندوب
        </div>
     </div>
   );

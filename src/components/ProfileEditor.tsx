@@ -7,9 +7,11 @@ import { db } from '../lib/firebase';
 
 export default function ProfileEditor({ profile, onClose }: { profile: UserProfile, onClose: () => void }) {
   const [name, setName] = useState(profile.name);
+  const [pharmacyName, setPharmacyName] = useState(profile.pharmacyName || '');
+  const [pharmacyAddress, setPharmacyAddress] = useState(profile.pharmacyAddress || '');
   const [address, setAddress] = useState(profile.addresses?.[0] || '');
-  const [location, setLocation] = useState(profile.location || '');
   const [workingHours, setWorkingHours] = useState(profile.workingHours || '');
+  const [isAvailable, setIsAvailable] = useState(profile.isAvailable ?? true);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -19,8 +21,10 @@ export default function ProfileEditor({ profile, onClose }: { profile: UserProfi
       if (profile.role === 'patient') {
         updates.addresses = address ? [address] : [];
       } else {
-        updates.location = location;
+        updates.pharmacyName = pharmacyName;
+        updates.pharmacyAddress = pharmacyAddress;
         updates.workingHours = workingHours;
+        updates.isAvailable = isAvailable;
       }
       await updateDoc(doc(db, 'profiles', profile.uid), updates);
       onClose();
@@ -77,15 +81,36 @@ export default function ProfileEditor({ profile, onClose }: { profile: UserProfi
 
           {profile.role === 'pharmacist' && (
             <>
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
+                <span className="text-sm font-bold text-slate-700">حالة التوافر للطلبات</span>
+                <button 
+                  onClick={() => setIsAvailable(!isAvailable)}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${isAvailable ? 'bg-teal-500' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isAvailable ? 'right-7' : 'right-1'}`}></div>
+                </button>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-2 text-right">موقع الصيدلية</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2 text-right">اسم الصيدلية</label>
+                <input 
+                  type="text" 
+                  value={pharmacyName}
+                  onChange={(e) => setPharmacyName(e.target.value)}
+                  placeholder="مثال: صيدلية الأمل المركزية"
+                  className="w-full bg-slate-50 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-right"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-2 text-right">عنوان الصيدلية بالتفصيل</label>
                 <div className="relative">
                   <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type="text" 
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="العنوان التفصيلي للصيدلية..."
+                    value={pharmacyAddress}
+                    onChange={(e) => setPharmacyAddress(e.target.value)}
+                    placeholder="الحي، الشارع، علامة مميزة..."
                     className="w-full bg-slate-50 p-4 pr-10 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-right"
                   />
                 </div>

@@ -5,10 +5,13 @@ export interface UserProfile {
   name: string;
   role: UserRole;
   pharmacyName?: string;
+  pharmacyAddress?: string;
+  workingHours?: string;
+  isAvailable?: boolean;
   createdAt: string;
   addresses?: string[];
+  favorites?: string[]; // IDs of favorite pharmacists
   location?: string;
-  workingHours?: string;
   ratingSum?: number;
   ratingCount?: number;
 }

@@ -16,7 +16,8 @@ import {
   Loader2,
   X,
   Settings,
-  Star
+  Star,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -36,7 +37,8 @@ import {
   updateDoc, 
   setDoc, 
   getDoc,
-  serverTimestamp
+  serverTimestamp,
+  limit
 } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { auth, db } from './lib/firebase';
@@ -47,6 +49,7 @@ import MapPlaceholder from './components/MapPlaceholder';
 import ChatModal from './components/ChatModal';
 import ProfileEditor from './components/ProfileEditor';
 import ReviewModal from './components/ReviewModal';
+import PharmacyProfile from './components/PharmacyProfile';
 
 // --- Components ---
 
@@ -345,10 +348,11 @@ interface OrderCardProps {
   onUpdateStatus?: (status: OrderStatus) => void;
   onReviewClick?: (order: Order) => void;
   onChatClick?: (order: Order) => void;
+  onViewPharmacist?: (pharmacistId: string) => void;
 }
 
 const OrderCard: React.FC<OrderCardProps> = (props) => {
-  const { order, isPharmacist, onUpdateStatus, onReviewClick, onChatClick } = props;
+  const { order, isPharmacist, onUpdateStatus, onReviewClick, onChatClick, onViewPharmacist } = props;
   const getStatusColor = (status: OrderStatus) => {
     switch(status) {
       case 'pending': return 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-100/50';
@@ -388,14 +392,18 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
       </div>
 
       {!isPharmacist && (
-        <div className="mb-8 px-2 relative">
-          <div className="flex justify-between text-xs font-bold text-slate-400 mb-2 relative z-10">
-            <div className={`px-2 bg-white ${order.status === 'pending' || order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}`}>مراجعة</div>
-            <div className={`px-2 bg-white ${order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}`}>في الطريق</div>
-            <div className={`px-2 bg-white ${order.status === 'completed' ? 'text-teal-600' : ''}`}>تم التوصيل</div>
+        <div className="mb-8 px-2">
+          <div className="flex justify-between text-[10px] font-black text-slate-400 mb-4 uppercase tracking-tighter">
+            <span className={order.status === 'pending' || order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}>1. مراجعة</span>
+            <span className={order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}>2. تجهيز</span>
+            <span className={order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}>3. في الطريق</span>
+            <span className={order.status === 'completed' ? 'text-teal-600' : ''}>4. تم</span>
           </div>
-          <div className="absolute top-2.5 rtl:right-10 rtl:left-10 ltr:left-10 ltr:right-10 h-1 bg-slate-100 -z-0 rounded-full">
-            <div className={`absolute top-0 right-0 h-1 bg-teal-500 transition-all rounded-full ${order.status === 'pending' ? 'w-[10%]' : order.status === 'delivering' ? 'w-1/2' : 'w-full'}`}></div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex gap-1 p-0.5">
+             <div className={`flex-1 h-1 rounded-full transition-all duration-700 ${order.status === 'pending' || order.status === 'delivering' || order.status === 'completed' ? 'bg-teal-500' : 'bg-slate-200'}`}></div>
+             <div className={`flex-1 h-1 rounded-full transition-all duration-700 ${order.status === 'delivering' || order.status === 'completed' ? 'bg-teal-500' : 'bg-slate-200'}`}></div>
+             <div className={`flex-1 h-1 rounded-full transition-all duration-700 ${order.status === 'delivering' || order.status === 'completed' ? 'bg-teal-500' : 'bg-slate-200'}`}></div>
+             <div className={`flex-1 h-1 rounded-full transition-all duration-700 ${order.status === 'completed' ? 'bg-teal-500' : 'bg-slate-200'}`}></div>
           </div>
         </div>
       )}
@@ -409,6 +417,15 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
             <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">العنوان</span>
             <span className="text-sm font-bold truncate max-w-[150px]">{order.address}</span>
           </div>
+          {order.pharmacistId && !isPharmacist && (
+            <button 
+              onClick={() => onViewPharmacist?.(order.pharmacistId!)}
+              className="mt-4 flex items-center gap-2 text-xs font-black text-teal-600 hover:text-teal-700 transition-colors bg-teal-50 px-4 py-2 rounded-xl self-start"
+            >
+              <Stethoscope className="w-4 h-4" />
+              عرض ملف الصيدلية
+            </button>
+          )}
         </div>
         <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-4 text-slate-700 justify-between">
           <div className="flex items-center gap-4">
@@ -504,11 +521,13 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pharmacists, setPharmacists] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
   const [chatOrder, setChatOrder] = useState<Order | null>(null);
+  const [viewPharmacist, setViewPharmacist] = useState<UserProfile | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'delivering' | 'completed'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -562,7 +581,16 @@ export default function App() {
       setOrders(docs);
     });
 
-    return unsubscribe;
+    // Fetch nearby pharmacists
+    const phQ = query(collection(db, 'profiles'), where('role', '==', 'pharmacist'), limit(5));
+    const unsubscribePh = onSnapshot(phQ, (snapshot) => {
+      setPharmacists(snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribePh();
+    };
   }, [user, profile, loading]);
 
   const handleRoleSelection = async (role: UserRole, name: string) => {
@@ -612,6 +640,17 @@ export default function App() {
     }
   };
 
+  const handleViewPharmacist = async (pharmacistId: string) => {
+    try {
+      const docSnap = await getDoc(doc(db, 'profiles', pharmacistId));
+      if (docSnap.exists()) {
+        setViewPharmacist({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const filteredOrders = orders.filter(o => {
     if (profile?.role === 'pharmacist') {
       if (filter === 'all') return true;
@@ -644,6 +683,43 @@ export default function App() {
       <main className="max-w-5xl mx-auto p-6 pb-40 sm:p-12 min-h-[70vh]">
         {profile.role === 'patient' ? (
           <div>
+            <div className="mb-12">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-black text-slate-800">صيدليات بالقرب منك</h3>
+                  <button className="text-sm font-bold text-teal-600 hover:underline">عرض الكل</button>
+               </div>
+               <div className="flex gap-4 overflow-x-auto pb-4 ltr:flex-row rtl:flex-row-reverse" style={{ scrollbarWidth: 'none' }}>
+                  {pharmacists.length === 0 ? (
+                    <div className="text-slate-400 text-xs font-bold py-4">جاري البحث عن أقرب الصيدليات...</div>
+                  ) : (
+                    pharmacists.map((ph) => (
+                      <motion.button 
+                        key={ph.uid}
+                        whileHover={{ y: -4 }}
+                        onClick={() => setViewPharmacist(ph)}
+                        className="min-w-[160px] bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all text-center flex flex-col items-center gap-3 shrink-0"
+                      >
+                         <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600">
+                           <ShieldCheck className="w-6 h-6" />
+                         </div>
+                         <div>
+                            <p className="text-sm font-black text-slate-800 line-clamp-1">{ph.pharmacyName || ph.name}</p>
+                            <div className="flex items-center justify-center gap-1 text-orange-500 font-bold text-[10px] mt-1">
+                               <Star className="w-3 h-3 fill-orange-500" />
+                               <span>{ph.ratingCount ? (ph.ratingSum! / ph.ratingCount).toFixed(1) : '5.0'}</span>
+                            </div>
+                         </div>
+                         {ph.isAvailable ? (
+                           <span className="text-[9px] bg-green-50 text-green-600 px-2 py-1 rounded-full font-black uppercase">عروض حية</span>
+                         ) : (
+                           <span className="text-[9px] bg-slate-50 text-slate-400 px-2 py-1 rounded-full font-black uppercase">مغلق</span>
+                         )}
+                      </motion.button>
+                    ))
+                  )}
+               </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div>
                 <h2 className="text-3xl font-black text-slate-900 leading-tight">تاريخ طلباتك</h2>
@@ -681,7 +757,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <AnimatePresence mode="popLayout">
                   {filteredOrders.map(order => (
-                    <OrderCard key={order.id} order={order} isPharmacist={false} onReviewClick={setReviewOrder} onChatClick={setChatOrder} />
+                    <OrderCard key={order.id} order={order} isPharmacist={false} onReviewClick={setReviewOrder} onChatClick={setChatOrder} onViewPharmacist={handleViewPharmacist} />
                   ))}
                 </AnimatePresence>
               </div>
@@ -760,6 +836,9 @@ export default function App() {
         )}
         {chatOrder && profile && (
           <ChatModal order={chatOrder} profile={profile} onClose={() => setChatOrder(null)} />
+        )}
+        {viewPharmacist && (
+          <PharmacyProfile pharmacist={viewPharmacist} onClose={() => setViewPharmacist(null)} />
         )}
       </AnimatePresence>
 
