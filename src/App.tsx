@@ -17,7 +17,8 @@ import {
   X,
   Settings,
   Star,
-  ShieldCheck
+  ShieldCheck,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -530,6 +531,23 @@ export default function App() {
   const [viewPharmacist, setViewPharmacist] = useState<UserProfile | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'delivering' | 'completed'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
+  const [pharmacySearch, setPharmacySearch] = useState('');
+
+  const toggleFavorite = async (phId: string) => {
+    if (!profile || !user) return;
+    const currentFavorites = profile.favorites || [];
+    const isFavorite = currentFavorites.includes(phId);
+    const newFavorites = isFavorite 
+      ? currentFavorites.filter(id => id !== phId)
+      : [...currentFavorites, phId];
+    
+    try {
+      await updateDoc(doc(db, 'profiles', user.uid), { favorites: newFavorites });
+      toast.success(isFavorite ? 'تمت الإزالة من المفضلة' : 'تمت الإضافة للمفضلة');
+    } catch (e) {
+      toast.error('حدث خطأ أثناء التحديث');
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -657,7 +675,8 @@ export default function App() {
       return o.status === filter;
     } else {
       if (searchQuery) {
-         return o.medicineName?.includes(searchQuery) || o.address?.includes(searchQuery);
+         return o.medicineName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                o.address?.toLowerCase().includes(searchQuery.toLowerCase());
       }
       return true;
     }
@@ -682,40 +701,80 @@ export default function App() {
 
       <main className="max-w-5xl mx-auto p-6 pb-40 sm:p-12 min-h-[70vh]">
         {profile.role === 'patient' ? (
-          <div>
-            <div className="mb-12">
-               <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-black text-slate-800">صيدليات بالقرب منك</h3>
-                  <button className="text-sm font-bold text-teal-600 hover:underline">عرض الكل</button>
+          <div className="space-y-12">
+            {/* Pharmacy Search Section */}
+            <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-teal-900/5">
+               <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
+                  <div className="text-right">
+                    <h3 className="text-2xl font-black text-slate-800 mb-2">ابحث عن صيدلية</h3>
+                    <p className="text-slate-500 text-sm">اعثر على أقرب صيدلية مفتوحة الآن في منطقتك</p>
+                  </div>
+                  <div className="w-full md:w-72">
+                    <div className="relative">
+                      <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text"
+                        placeholder="اسم الصيدلية أو الموقع..."
+                        value={pharmacySearch}
+                        onChange={(e) => setPharmacySearch(e.target.value)}
+                        className="w-full bg-slate-50 p-4 pr-11 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-right text-sm"
+                      />
+                    </div>
+                  </div>
                </div>
+               
                <div className="flex gap-4 overflow-x-auto pb-4 ltr:flex-row rtl:flex-row-reverse" style={{ scrollbarWidth: 'none' }}>
-                  {pharmacists.length === 0 ? (
-                    <div className="text-slate-400 text-xs font-bold py-4">جاري البحث عن أقرب الصيدليات...</div>
+                  {pharmacists.filter(p => 
+                    p.pharmacyName?.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
+                    p.name.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
+                    p.pharmacyAddress?.toLowerCase().includes(pharmacySearch.toLowerCase())
+                  ).length === 0 ? (
+                    <div className="w-full text-center py-10 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-3xl">
+                      لم نجد صيدليات مطابقة لبحثك في منطقتك الحالية
+                    </div>
                   ) : (
-                    pharmacists.map((ph) => (
-                      <motion.button 
-                        key={ph.uid}
-                        whileHover={{ y: -4 }}
-                        onClick={() => setViewPharmacist(ph)}
-                        className="min-w-[160px] bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all text-center flex flex-col items-center gap-3 shrink-0"
-                      >
-                         <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600">
-                           <ShieldCheck className="w-6 h-6" />
-                         </div>
-                         <div>
-                            <p className="text-sm font-black text-slate-800 line-clamp-1">{ph.pharmacyName || ph.name}</p>
-                            <div className="flex items-center justify-center gap-1 text-orange-500 font-bold text-[10px] mt-1">
-                               <Star className="w-3 h-3 fill-orange-500" />
-                               <span>{ph.ratingCount ? (ph.ratingSum! / ph.ratingCount).toFixed(1) : '5.0'}</span>
-                            </div>
-                         </div>
-                         {ph.isAvailable ? (
-                           <span className="text-[9px] bg-green-50 text-green-600 px-2 py-1 rounded-full font-black uppercase">عروض حية</span>
-                         ) : (
-                           <span className="text-[9px] bg-slate-50 text-slate-400 px-2 py-1 rounded-full font-black uppercase">مغلق</span>
-                         )}
-                      </motion.button>
-                    ))
+                    pharmacists
+                      .filter(p => 
+                        p.pharmacyName?.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
+                        p.name.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
+                        p.pharmacyAddress?.toLowerCase().includes(pharmacySearch.toLowerCase())
+                      )
+                      .map((ph) => {
+                        const isFav = profile.favorites?.includes(ph.uid);
+                        return (
+                          <motion.div 
+                            key={ph.uid}
+                            whileHover={{ y: -6, shadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                            className="min-w-[200px] bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 transition-all text-center flex flex-col items-center gap-4 shrink-0 relative group cursor-pointer"
+                            onClick={() => setViewPharmacist(ph)}
+                          >
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); toggleFavorite(ph.uid); }}
+                               className={`absolute top-4 left-4 p-2 rounded-full border transition-all ${isFav ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-300 border-slate-100 hover:text-orange-500'}`}
+                             >
+                                <Star className={`w-3 h-3 ${isFav ? 'fill-white' : ''}`} />
+                             </button>
+                             <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-teal-600 shadow-sm border border-slate-100">
+                               <ShieldCheck className="w-8 h-8" />
+                             </div>
+                             <div>
+                                <p className="text-base font-black text-slate-800 line-clamp-1">{ph.pharmacyName || ph.name}</p>
+                                <div className="flex items-center justify-center gap-1 text-orange-500 font-black text-xs mt-1">
+                                   <Star className="w-3 h-3 fill-orange-500" />
+                                   <span>{ph.ratingCount ? (ph.ratingSum! / ph.ratingCount).toFixed(1) : '5.0'}</span>
+                                </div>
+                             </div>
+                             <button 
+                               className="w-full bg-white text-teal-600 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-teal-100 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-sm"
+                             >
+                                عرض التفاصيل
+                             </button>
+                             {ph.isAvailable && (
+                               <div className="absolute -top-2 -right-2 bg-green-500 text-white text-[8px] font-black px-2 py-1 rounded-lg animate-bounce shadow-lg shadow-green-500/30">متاح الآن</div>
+                             )}
+                          </motion.div>
+                        );
+                      })
                   )}
                </div>
             </div>
@@ -838,7 +897,12 @@ export default function App() {
           <ChatModal order={chatOrder} profile={profile} onClose={() => setChatOrder(null)} />
         )}
         {viewPharmacist && (
-          <PharmacyProfile pharmacist={viewPharmacist} onClose={() => setViewPharmacist(null)} />
+          <PharmacyProfile 
+            pharmacist={viewPharmacist} 
+            isFavorite={profile?.favorites?.includes(viewPharmacist.uid)}
+            onToggleFavorite={() => toggleFavorite(viewPharmacist.uid)}
+            onClose={() => setViewPharmacist(null)} 
+          />
         )}
       </AnimatePresence>
 

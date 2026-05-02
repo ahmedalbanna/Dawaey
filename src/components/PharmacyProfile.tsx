@@ -3,7 +3,12 @@ import { motion } from 'motion/react';
 import { X, MapPin, Clock, Star, Phone, ShieldCheck } from 'lucide-react';
 import { UserProfile } from '../types';
 
-export default function PharmacyProfile({ pharmacist, onClose }: { pharmacist: UserProfile, onClose: () => void }) {
+export default function PharmacyProfile({ pharmacist, isFavorite, onToggleFavorite, onClose }: { 
+  pharmacist: UserProfile, 
+  isFavorite?: boolean,
+  onToggleFavorite?: () => void,
+  onClose: () => void 
+}) {
   const rating = pharmacist.ratingCount ? (pharmacist.ratingSum! / pharmacist.ratingCount).toFixed(1) : 'جديد';
 
   return (
@@ -78,8 +83,11 @@ export default function PharmacyProfile({ pharmacist, onClose }: { pharmacist: U
              <button className="flex-1 bg-teal-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-teal-600/30 hover:bg-teal-700 transition-all">
                 ابدأ محادثة
              </button>
-             <button className="px-6 bg-slate-100 text-slate-400 py-4 rounded-2xl hover:bg-slate-200 transition-all">
-                <Star className="w-6 h-6" />
+             <button 
+                onClick={onToggleFavorite}
+                className={`px-6 py-4 rounded-2xl transition-all border ${isFavorite ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}
+             >
+                <Star className={`w-6 h-6 ${isFavorite ? 'fill-white' : ''}`} />
              </button>
           </div>
         </div>
