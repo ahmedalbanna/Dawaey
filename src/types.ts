@@ -6,6 +6,11 @@ export interface UserProfile {
   role: UserRole;
   pharmacyName?: string;
   createdAt: string;
+  addresses?: string[];
+  location?: string;
+  workingHours?: string;
+  ratingSum?: number;
+  ratingCount?: number;
 }
 
 export type OrderStatus = 'pending' | 'delivering' | 'completed';
@@ -20,6 +25,17 @@ export interface Order {
   phone: string;
   status: OrderStatus;
   pharmacistId?: string;
+  isReviewed?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Review {
+  id: string;
+  orderId: string;
+  pharmacistId: string;
+  patientId: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
 }

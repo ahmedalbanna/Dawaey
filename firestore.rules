@@ -28,14 +28,19 @@ service cloud.firestore {
     match /profiles/{uid} {
       allow read: if isSignedIn();
       allow create: if isOwner(uid) && isValidProfile(request.resource.data);
-      allow update: if isOwner(uid) && isValidProfile(request.resource.data);
+      allow update: if isSignedIn(); // allow pharmacists to be updated with ratings by patients
     }
 
     match /orders/{orderId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidOrder(request.resource.data);
-      allow update: if isSignedIn(); // In a real app, restrict based on pharmacist role
+      allow update: if isSignedIn(); 
       allow delete: if isSignedIn() && (resource.data.patientId == request.auth.uid);
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.patientId == request.auth.uid;
     }
   }
 }

@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Upload,
   Loader2,
-  X
+  X,
+  Settings,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -42,7 +44,7 @@ import { UserProfile, Order, OrderStatus, UserRole } from './types';
 
 // --- Components ---
 
-const Header = ({ user, profile, onLogout }: { user: FirebaseUser | null, profile: UserProfile | null, onLogout: () => void }) => (
+const Header = ({ user, profile, onLogout, onSettings }: { user: FirebaseUser | null, profile: UserProfile | null, onLogout: () => void, onSettings?: () => void }) => (
   <header className="bg-white border-b border-slate-200 px-4 sm:px-12 py-4 sm:py-6 flex justify-between items-center shadow-sm sticky top-0 z-50">
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center shadow-md shadow-teal-600/20">
@@ -57,6 +59,12 @@ const Header = ({ user, profile, onLogout }: { user: FirebaseUser | null, profil
           <p className="text-sm font-bold text-slate-800">{profile?.name}</p>
         </div>
         <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+        <button 
+          onClick={onSettings}
+          className="p-2 text-slate-400 hover:bg-slate-100 hover:text-teal-600 rounded-full transition-all"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
         <button 
           onClick={onLogout}
           className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 px-3 py-2 sm:px-4 rounded-full border border-slate-200 transition-all group"
@@ -191,9 +199,9 @@ const RoleSelection = ({ onSelect }: { onSelect: (role: UserRole, name: string) 
   );
 };
 
-const PatientOrderForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void, onCancel: () => void }) => {
+const PatientOrderForm = ({ profile, onSubmit, onCancel }: { profile: UserProfile, onSubmit: (data: any) => void, onCancel: () => void }) => {
   const [medicine, setMedicine] = useState('');
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState(profile.addresses?.[0] || '');
   const [phone, setPhone] = useState('');
   const [image, setImage] = useState<string | null>(null);
 
@@ -325,14 +333,18 @@ const PatientOrderForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) => voi
   );
 };
 
+import ProfileEditor from './components/ProfileEditor';
+import ReviewModal from './components/ReviewModal';
+
 interface OrderCardProps {
   order: Order;
   isPharmacist: boolean;
   onUpdateStatus?: (status: OrderStatus) => void;
+  onReviewClick?: (order: Order) => void;
 }
 
-const OrderCard = (props: OrderCardProps) => {
-  const { order, isPharmacist, onUpdateStatus } = props;
+const OrderCard: React.FC<OrderCardProps> = (props) => {
+  const { order, isPharmacist, onUpdateStatus, onReviewClick } = props;
   const getStatusColor = (status: OrderStatus) => {
     switch(status) {
       case 'pending': return 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-100/50';
@@ -415,6 +427,27 @@ const OrderCard = (props: OrderCardProps) => {
         </div>
       )}
 
+      {!isPharmacist && order.status === 'completed' && !order.isReviewed && (
+        <div className="pt-6 border-t border-slate-100 mt-2">
+          <button 
+            onClick={() => onReviewClick?.(order)}
+            className="w-full bg-orange-50 hover:bg-orange-100 text-orange-600 py-3 rounded-xl text-sm font-bold border border-orange-200 transition-all flex items-center justify-center gap-2"
+          >
+            <Star className="w-4 h-4" />
+            قيم الصيدلي
+          </button>
+        </div>
+      )}
+      
+      {!isPharmacist && order.status === 'completed' && order.isReviewed && (
+        <div className="pt-6 border-t border-slate-100 mt-2 flex justify-center text-orange-400">
+           <div className="flex gap-1 items-center bg-orange-50 px-3 py-1 rounded-full text-xs font-bold">
+              <Star className="w-4 h-4 fill-orange-400" />
+              تم التقييم
+           </div>
+        </div>
+      )}
+
       {order.prescriptionImage && (
         <div className="mt-6 pt-6 border-t border-slate-100">
           <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 text-right">مرفق الروشتة</p>
@@ -433,6 +466,8 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -530,7 +565,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans" dir="rtl">
-      <Header user={user} profile={profile} onLogout={() => signOut(auth)} />
+      <Header user={user} profile={profile} onLogout={() => signOut(auth)} onSettings={() => setShowSettings(true)} />
 
       <main className="max-w-5xl mx-auto p-6 pb-40 sm:p-12 min-h-[70vh]">
         {profile.role === 'patient' ? (
@@ -562,7 +597,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <AnimatePresence mode="popLayout">
                   {orders.map(order => (
-                    <OrderCard key={order.id} order={order} isPharmacist={false} />
+                    <OrderCard key={order.id} order={order} isPharmacist={false} onReviewClick={setReviewOrder} />
                   ))}
                 </AnimatePresence>
               </div>
@@ -618,8 +653,20 @@ export default function App() {
       <AnimatePresence>
         {showForm && (
           <PatientOrderForm 
+            profile={profile}
             onCancel={() => setShowForm(false)} 
             onSubmit={handleNewOrder} 
+          />
+        )}
+        {showSettings && (
+          <ProfileEditor profile={profile} onClose={() => setShowSettings(false)} />
+        )}
+        {reviewOrder && (
+          <ReviewModal 
+            orderId={reviewOrder.id} 
+            pharmacistId={reviewOrder.pharmacistId!} 
+            patientId={reviewOrder.patientId} 
+            onClose={() => setReviewOrder(null)} 
           />
         )}
       </AnimatePresence>

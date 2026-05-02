@@ -9,7 +9,12 @@
         "name": { "type": "string" },
         "role": { "type": "string", "enum": ["patient", "pharmacist"] },
         "pharmacyName": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "addresses": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string" },
+        "workingHours": { "type": "string" },
+        "ratingSum": { "type": "number" },
+        "ratingCount": { "type": "number" }
       },
       "required": ["uid", "role", "name"]
     },
@@ -26,10 +31,25 @@
         "phone": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "delivering", "completed"] },
         "pharmacistId": { "type": "string" },
+        "isReviewed": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["patientId", "patientName", "status", "createdAt"]
+    },
+    "Review": {
+      "title": "Pharmacist Review",
+      "description": "Stores reviews given by patients to pharmacists.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "pharmacistId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "pharmacistId", "patientId", "rating"]
     }
   },
   "firestore": {
@@ -40,6 +60,10 @@
     "orders/{orderId}": {
       "schema": "Order",
       "description": "Collection of medicine orders."
+    },
+    "reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Collection of reviews."
     }
   }
 }
