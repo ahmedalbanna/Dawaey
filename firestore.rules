@@ -36,6 +36,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidOrder(request.resource.data);
       allow update: if isSignedIn(); 
       allow delete: if isSignedIn() && (resource.data.patientId == request.auth.uid);
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      }
     }
 
     match /reviews/{reviewId} {

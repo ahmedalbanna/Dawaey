@@ -15,6 +15,12 @@ export interface UserProfile {
 
 export type OrderStatus = 'pending' | 'delivering' | 'completed';
 
+export interface ChatMessage {
+  senderId: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface Order {
   id: string;
   patientId: string;
@@ -28,6 +34,7 @@ export interface Order {
   isReviewed?: boolean;
   createdAt: string;
   updatedAt: string;
+  messages?: ChatMessage[];
 }
 
 export interface Review {

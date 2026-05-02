@@ -42,6 +42,12 @@ import { useDropzone } from 'react-dropzone';
 import { auth, db } from './lib/firebase';
 import { UserProfile, Order, OrderStatus, UserRole } from './types';
 
+import { Toaster, toast } from 'sonner';
+import MapPlaceholder from './components/MapPlaceholder';
+import ChatModal from './components/ChatModal';
+import ProfileEditor from './components/ProfileEditor';
+import ReviewModal from './components/ReviewModal';
+
 // --- Components ---
 
 const Header = ({ user, profile, onLogout, onSettings }: { user: FirebaseUser | null, profile: UserProfile | null, onLogout: () => void, onSettings?: () => void }) => (
@@ -333,18 +339,16 @@ const PatientOrderForm = ({ profile, onSubmit, onCancel }: { profile: UserProfil
   );
 };
 
-import ProfileEditor from './components/ProfileEditor';
-import ReviewModal from './components/ReviewModal';
-
 interface OrderCardProps {
   order: Order;
   isPharmacist: boolean;
   onUpdateStatus?: (status: OrderStatus) => void;
   onReviewClick?: (order: Order) => void;
+  onChatClick?: (order: Order) => void;
 }
 
 const OrderCard: React.FC<OrderCardProps> = (props) => {
-  const { order, isPharmacist, onUpdateStatus, onReviewClick } = props;
+  const { order, isPharmacist, onUpdateStatus, onReviewClick, onChatClick } = props;
   const getStatusColor = (status: OrderStatus) => {
     switch(status) {
       case 'pending': return 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-100/50';
@@ -366,9 +370,9 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-[2rem] p-6 sm:p-8 border border-slate-100 shadow-lg shadow-slate-200/40 hover:shadow-xl transition-all mb-6 relative overflow-hidden group"
+      className="bg-white rounded-[2rem] p-6 sm:p-8 border border-slate-100 shadow-lg shadow-slate-200/40 hover:shadow-xl transition-all mb-6 relative overflow-hidden group flex flex-col"
     >
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
         <div className="flex flex-col order-2 sm:order-1">
           <span className={`self-start px-4 py-1.5 rounded-full text-xs font-black border tracking-wide mb-3 shadow-sm ${getStatusColor(order.status)}`}>
             {getStatusLabel(order.status)}
@@ -383,26 +387,62 @@ const OrderCard: React.FC<OrderCardProps> = (props) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      {!isPharmacist && (
+        <div className="mb-8 px-2 relative">
+          <div className="flex justify-between text-xs font-bold text-slate-400 mb-2 relative z-10">
+            <div className={`px-2 bg-white ${order.status === 'pending' || order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}`}>مراجعة</div>
+            <div className={`px-2 bg-white ${order.status === 'delivering' || order.status === 'completed' ? 'text-teal-600' : ''}`}>في الطريق</div>
+            <div className={`px-2 bg-white ${order.status === 'completed' ? 'text-teal-600' : ''}`}>تم التوصيل</div>
+          </div>
+          <div className="absolute top-2.5 rtl:right-10 rtl:left-10 ltr:left-10 ltr:right-10 h-1 bg-slate-100 -z-0 rounded-full">
+            <div className={`absolute top-0 right-0 h-1 bg-teal-500 transition-all rounded-full ${order.status === 'pending' ? 'w-[10%]' : order.status === 'delivering' ? 'w-1/2' : 'w-full'}`}></div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 mt-auto">
         <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-4 text-slate-700">
           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-teal-600">
             <MapPin className="w-5 h-5" />
           </div>
           <div className="flex flex-col">
             <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">العنوان</span>
-            <span className="text-sm font-bold truncate max-w-[200px]">{order.address}</span>
+            <span className="text-sm font-bold truncate max-w-[150px]">{order.address}</span>
           </div>
         </div>
-        <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-4 text-slate-700">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-teal-600">
-            <Phone className="w-5 h-5" />
+        <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-4 text-slate-700 justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-teal-600">
+              <Phone className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">التليفون</span>
+              <span className="text-sm font-bold">{order.phone}</span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">التليفون</span>
-            <span className="text-sm font-bold">{order.phone}</span>
-          </div>
+          {(order.status === 'delivering' || order.status === 'completed') && (
+            <button 
+              onClick={() => onChatClick?.(order)}
+              className="p-2 bg-slate-200 hover:bg-slate-300 rounded-full transition-colors group-hover:bg-teal-100 group-hover:text-teal-700"
+              title="محادثة"
+            >
+              <div className="w-5 h-5 relative">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              </div>
+            </button>
+          )}
         </div>
       </div>
+
+      {order.status === 'delivering' && (
+        <div className="mb-6">
+           <MapPlaceholder 
+             title={isPharmacist ? "موقع المريض المستهدف" : "موقع المندوب / الصيدلي"} 
+             description={order.address} 
+             address={order.address} 
+           />
+        </div>
+      )}
 
       {isPharmacist && order.status !== 'completed' && (
         <div className="flex gap-3 pt-6 border-t border-slate-100 mt-2">
@@ -468,6 +508,9 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [chatOrder, setChatOrder] = useState<Order | null>(null);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'delivering' | 'completed'>('pending');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -493,16 +536,34 @@ export default function App() {
     if (profile.role === 'patient') {
       q = query(collection(db, 'orders'), where('patientId', '==', user.uid), orderBy('createdAt', 'desc'));
     } else {
-      q = query(collection(db, 'orders'), where('status', 'in', ['pending', 'delivering']), orderBy('createdAt', 'asc'));
+      q = query(collection(db, 'orders'), orderBy('createdAt', 'desc')); // Fetch all orders to filter locally
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Notification logic for modified documents
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'modified') {
+          const newData = change.doc.data() as Order;
+          if (profile.role === 'patient' && newData.status === 'delivering') {
+            toast.success('تم قبول طلبك! وهو الآن في الطريق إليك.');
+          } else if (profile.role === 'patient' && newData.status === 'completed') {
+            toast.success('تم تسليم طلبك بنجاح. لا تنسَ تقييم الصيدلي!');
+          }
+        }
+        if (change.type === 'added' && profile.role === 'pharmacist' && !loading) {
+           const newData = change.doc.data() as Order;
+           if (newData.status === 'pending') {
+              toast.info('طلب دواء جديد متاح في منطقتك!');
+           }
+        }
+      });
+
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
       setOrders(docs);
     });
 
     return unsubscribe;
-  }, [user, profile]);
+  }, [user, profile, loading]);
 
   const handleRoleSelection = async (role: UserRole, name: string) => {
     setLoading(true);
@@ -551,6 +612,18 @@ export default function App() {
     }
   };
 
+  const filteredOrders = orders.filter(o => {
+    if (profile?.role === 'pharmacist') {
+      if (filter === 'all') return true;
+      return o.status === filter;
+    } else {
+      if (searchQuery) {
+         return o.medicineName?.includes(searchQuery) || o.address?.includes(searchQuery);
+      }
+      return true;
+    }
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-teal-50">
@@ -565,12 +638,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans" dir="rtl">
+      <Toaster position="top-center" richColors />
       <Header user={user} profile={profile} onLogout={() => signOut(auth)} onSettings={() => setShowSettings(true)} />
 
       <main className="max-w-5xl mx-auto p-6 pb-40 sm:p-12 min-h-[70vh]">
         {profile.role === 'patient' ? (
           <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div>
                 <h2 className="text-3xl font-black text-slate-900 leading-tight">تاريخ طلباتك</h2>
                 <p className="text-slate-500 mt-1">تتبع رحلة دوائك من الصيدلية إلى منزلك</p>
@@ -581,7 +655,17 @@ export default function App() {
               </div>
             </div>
 
-            {orders.length === 0 ? (
+            <div className="mb-8">
+               <input 
+                 type="text"
+                 placeholder="ابحث في طلباتك السابقة بالاسم أو العنوان..."
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+                 className="w-full bg-white p-4 rounded-[1.5rem] border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none shadow-sm text-right font-medium"
+               />
+            </div>
+
+            {filteredOrders.length === 0 ? (
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -596,8 +680,8 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <AnimatePresence mode="popLayout">
-                  {orders.map(order => (
-                    <OrderCard key={order.id} order={order} isPharmacist={false} onReviewClick={setReviewOrder} />
+                  {filteredOrders.map(order => (
+                    <OrderCard key={order.id} order={order} isPharmacist={false} onReviewClick={setReviewOrder} onChatClick={setChatOrder} />
                   ))}
                 </AnimatePresence>
               </div>
@@ -615,18 +699,20 @@ export default function App() {
           </div>
         ) : (
           <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12 text-right">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 text-right">
               <div>
                 <h2 className="text-3xl font-black text-slate-900 leading-tight">الطلبات المتاحة حالياً</h2>
                 <p className="text-slate-500 mt-1">ساهم في شفاء المرضى من خلال توصيل سريع وآمن</p>
               </div>
-              <div className="bg-white px-4 py-2 rounded-full border border-slate-200 text-orange-500 font-bold text-sm shadow-sm flex items-center gap-2">
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                استلام فوري
+              <div className="flex gap-2 w-full sm:w-auto bg-white p-1 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+                 <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${filter === 'all' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>الكل</button>
+                 <button onClick={() => setFilter('pending')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${filter === 'pending' ? 'bg-amber-50 text-amber-600' : 'text-slate-500 hover:bg-slate-50'}`}>جديدة</button>
+                 <button onClick={() => setFilter('delivering')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${filter === 'delivering' ? 'bg-teal-50 text-teal-600' : 'text-slate-500 hover:bg-slate-50'}`}>جاري التوصيل</button>
+                 <button onClick={() => setFilter('completed')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${filter === 'completed' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>مكتملة</button>
               </div>
             </div>
 
-            {orders.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <div className="bg-white rounded-[3rem] p-16 sm:p-24 text-center border border-slate-100 shadow-xl shadow-slate-200/20">
                 <div className="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <CheckCircle className="w-12 h-12 text-teal-600" />
@@ -636,14 +722,17 @@ export default function App() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {orders.map(order => (
-                  <OrderCard 
-                    key={order.id} 
-                    order={order} 
-                    isPharmacist={true} 
-                    onUpdateStatus={(status) => updateOrderStatus(order.id, status)}
-                  />
-                ))}
+                <AnimatePresence mode="popLayout">
+                  {filteredOrders.map(order => (
+                    <OrderCard 
+                      key={order.id} 
+                      order={order} 
+                      isPharmacist={true} 
+                      onUpdateStatus={(status) => updateOrderStatus(order.id, status)}
+                      onChatClick={setChatOrder}
+                    />
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </div>
@@ -668,6 +757,9 @@ export default function App() {
             patientId={reviewOrder.patientId} 
             onClose={() => setReviewOrder(null)} 
           />
+        )}
+        {chatOrder && profile && (
+          <ChatModal order={chatOrder} profile={profile} onClose={() => setChatOrder(null)} />
         )}
       </AnimatePresence>
 

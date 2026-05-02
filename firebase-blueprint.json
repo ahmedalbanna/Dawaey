@@ -50,6 +50,17 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["orderId", "pharmacistId", "patientId", "rating"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Messages exchanged between patient and pharmacist.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "text"]
     }
   },
   "firestore": {
@@ -60,6 +71,10 @@
     "orders/{orderId}": {
       "schema": "Order",
       "description": "Collection of medicine orders."
+    },
+    "orders/{orderId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Subcollection of chat messages for an order."
     },
     "reviews/{reviewId}": {
       "schema": "Review",
