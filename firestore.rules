@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidProfile(data) {
+      return data.uid is string && 
+             data.role in ['patient', 'pharmacist'] && 
+             data.name is string && data.name.size() > 0;
+    }
+
+    function isValidOrder(data) {
+      return data.patientId is string && 
+             data.status in ['pending', 'delivering', 'completed'];
+    }
+
+    match /profiles/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid) && isValidProfile(request.resource.data);
+      allow update: if isOwner(uid) && isValidProfile(request.resource.data);
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidOrder(request.resource.data);
+      allow update: if isSignedIn(); // In a real app, restrict based on pharmacist role
+      allow delete: if isSignedIn() && (resource.data.patientId == request.auth.uid);
+    }
+  }
+}

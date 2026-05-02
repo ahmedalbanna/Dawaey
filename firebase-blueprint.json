@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "User Profile",
+      "description": "Stores user profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["patient", "pharmacist"] },
+        "pharmacyName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role", "name"]
+    },
+    "Order": {
+      "title": "Medication Order",
+      "description": "Stores details about a prescription or medicine order.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "medicineName": { "type": "string" },
+        "prescriptionImage": { "type": "string", "description": "Base64 or URL of the prescription image" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "delivering", "completed"] },
+        "pharmacistId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "patientName", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "profiles/{uid}": {
+      "schema": "Profile",
+      "description": "Collection of user profiles."
+    },
+    "orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of medicine orders."
+    }
+  }
+}

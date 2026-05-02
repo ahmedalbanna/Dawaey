@@ -1,0 +1,8 @@
+{
+  "name": "دوائي - Dawaey",
+  "description": "تطبيق بسيط لطلب الأدوية عبر تصوير الروشتة أو كتابة الاسم وتوصيلها من أقرب صيدلية.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
